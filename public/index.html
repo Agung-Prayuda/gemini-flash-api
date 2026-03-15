@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetBot AI - Gemini 2.5 Flash</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        body { 
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            min-height: 100vh;
+        }
+        .chat-container { 
+            height: 60vh; 
+            overflow-y: auto; 
+            scroll-behavior: smooth;
+            padding: 1rem;
+        }
+        .message-bot { 
+            background: white; 
+            color: #1e293b; 
+            border-radius: 20px 20px 20px 5px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .message-user { 
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%); 
+            color: white; 
+            border-radius: 20px 20px 5px 20px; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .typing-indicator span {
+            height: 8px; width: 8px; background: #2563eb; border-radius: 50%;
+            display: inline-block; margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
+        .code-block {
+            background: #1e293b; border-radius: 0.5rem; overflow: hidden;
+            margin: 0.75rem 0; border: 1px solid #334155;
+        }
+        .code-header {
+            background: #0f172a; color: #94a3b8; padding: 0.5rem 1rem;
+            font-size: 0.75rem; display: flex; justify-content: space-between;
+            border-bottom: 1px solid #334155;
+        }
+        .code-content {
+            background: #1e293b; color: #a5f3fc; padding: 1rem;
+            font-family: 'Courier New', monospace; font-size: 0.875rem;
+            overflow-x: auto; white-space: pre-wrap;
+        }
+        .copy-btn {
+            background: #334155; color: #94a3b8; border: none;
+            padding: 0.25rem 0.75rem; border-radius: 0.375rem;
+            font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #475569; color: white; }
+        .model-badge {
+            background: #dbeafe; color: #1e40af; padding: 0.25rem 0.75rem;
+            border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+        }
+        .file-preview {
+            border: 2px dashed #cbd5e1; border-radius: 0.5rem;
+            padding: 0.5rem; margin-top: 0.5rem;
+        }
+        .feature-tag {
+            background: #ede9fe; color: #5b21b6; padding: 0.25rem 0.5rem;
+            border-radius: 9999px; font-size: 0.7rem; font-weight: 500;
+        }
+        /* Custom scrollbar */
+        .chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .chat-container::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-purple-600 p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                        <i class="fas fa-bolt text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-white">NetBot AI</h1>
+                        <p class="text-white/80 text-xs flex items-center gap-2">
+                            <span>Gemini 2.5 Flash</span>
+                            <span class="w-1 h-1 bg-white/60 rounded-full"></span>
+                            <span>1M Context</span>
+                            <span class="w-1 h-1 bg-white/60 rounded-full"></span>
+                            <span>Multimodal</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <select id="modelSelect" class="bg-white/20 text-white text-sm rounded-lg px-3 py-1.5 border border-white/30 focus:outline-none focus:border-white/50">
+                        <option value="gemini-2.5-flash" selected>🚀 Gemini 2.5 Flash</option>
+                        <option value="gemini-2.5-flash-lite">⚡ Gemini 2.5 Flash-Lite</option>
+                        <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro</option>
+                    </select>
+                    <div id="statusIndicator" class="flex items-center">
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1"></div>
+                        <span id="statusText" class="text-white text-xs">Connected</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Bar -->
+        <div class="bg-gray-50 px-4 py-2 border-b flex flex-wrap gap-2 items-center">
+            <span class="feature-tag"><i class="fas fa-check-circle text-xs mr-1"></i>Function Calling</span>
+            <span class="feature-tag"><i class="fas fa-code text-xs mr-1"></i>Code Execution</span>
+            <span class="feature-tag"><i class="fas fa-search text-xs mr-1"></i>Grounding</span>
+            <span class="feature-tag"><i class="fas fa-image text-xs mr-1"></i>Vision</span>
+            <span class="feature-tag"><i class="fas fa-video text-xs mr-1"></i>Video</span>
+            <span class="feature-tag"><i class="fas fa-microphone text-xs mr-1"></i>Audio</span>
+        </div>
+
+        <!-- Chat Container -->
+        <div id="chatContainer" class="chat-container bg-gray-50">
+            <!-- Welcome message akan diisi JavaScript -->
+        </div>
+
+        <!-- File Upload Area -->
+        <div class="px-4 py-3 bg-white border-t">
+            <div id="fileUploadArea" class="file-preview text-center cursor-pointer hover:bg-gray-50 transition">
+                <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*">
+                <div class="text-sm text-gray-600">
+                    <i class="fas fa-cloud-upload-alt text-blue-500 mr-1"></i>
+                    Klik untuk upload gambar/video/audio (multimodal)
+                </div>
+                <div id="filePreview" class="hidden mt-2 flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-white border-t">
+            <div class="flex items-end space-x-2">
+                <div class="flex-1 relative">
+                    <textarea id="userInput" rows="1" 
+                        placeholder="Tanya tentang TKJ (Cisco, MikroTik, firewall, dll)..."
+                        class="w-full px-4 py-3 pr-12 border border-gray-200 rounded-2xl focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 resize-none"></textarea>
+                    <button id="voiceBtn" class="absolute right-3 bottom-3 text-gray-400 hover:text-blue-500">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                <button id="sendBtn" class="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl text-white hover:shadow-lg transition transform hover:scale-105">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="flex mt-2 justify-between text-xs text-gray-400">
+                <div>
+                    <i class="fas fa-info-circle mr-1 text-blue-500"></i>
+                    <span id="modelInfo">Model: Gemini 2.5 Flash</span>
+                </div>
+                <span>Tekan Enter untuk kirim</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let uploadedFiles = [];
+        let currentModel = 'gemini-2.5-flash';
+        let isProcessing = false;
+
+        // DOM Elements
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const voiceBtn = document.getElementById('voiceBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const fileInput = document.getElementById('fileInput');
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const filePreview = document.getElementById('filePreview');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const modelInfo = document.getElementById('modelInfo');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            showWelcomeMessage();
+            checkApiStatus();
+            
+            // Auto-resize textarea
+            userInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+
+            // Check status setiap 30 detik
+            setInterval(checkApiStatus, 30000);
+        });
+
+        // Check API Status
+        async function checkApiStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusIndicator.innerHTML = '<div class="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-1"></div>';
+                    statusText.textContent = 'Connected';
+                    statusText.className = 'text-white text-xs';
+                } else {
+                    statusIndicator.innerHTML = '<div class="w-2 h-2 bg-red-400 rounded-full mr-1"></div>';
+                    statusText.textContent = 'Error';
+                    statusText.className = 'text-white text-xs';
+                }
+            } catch (error) {
+                statusIndicator.innerHTML = '<div class="w-2 h-2 bg-red-400 rounded-full mr-1"></div>';
+                statusText.textContent = 'Offline';
+                statusText.className = 'text-white text-xs';
+            }
+        }
+
+        // Show welcome message
+        function showWelcomeMessage() {
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.className = 'flex items-start space-x-3';
+            welcomeDiv.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="message-bot p-4 max-w-[80%]">
+                    <p class="text-sm font-medium text-blue-600 mb-2">🚀 NetBot AI - Gemini 2.5 Flash</p>
+                    <p class="text-sm text-gray-700">Asisten khusus <span class="font-semibold text-blue-600">Teknik Komputer dan Jaringan (TKJ)</span></p>
+                    
+                    <div class="mt-3 bg-blue-50 p-3 rounded-lg">
+                        <p class="text-xs font-semibold text-blue-800 mb-2">📊 Model Specifications:</p>
+                        <ul class="text-xs text-gray-700 space-y-1">
+                            <li>• <span class="font-mono">gemini-2.5-flash</span> - Stable, Production Ready</li>
+                            <li>• Context window: <strong>1,048,576 tokens</strong></li>
+                            <li>• Output: Up to 8,192 tokens</li>
+                            <li>• Multimodal: Text, Images, Video, Audio</li>
+                        </ul>
+                    </div>
+
+                    <div class="mt-3">
+                        <p class="text-xs font-semibold text-gray-700 mb-2">🔧 Contoh pertanyaan:</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-100 transition" onclick="setQuestion('Cara konfigurasi VLAN di Cisco Switch?')">
+                                <i class="fas fa-code-branch text-blue-500 mr-1"></i>VLAN Cisco
+                            </span>
+                            <span class="text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-100 transition" onclick="setQuestion('Contoh script firewall iptables untuk web server')">
+                                <i class="fas fa-shield-alt text-blue-500 mr-1"></i>Firewall Linux
+                            </span>
+                            <span class="text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-100 transition" onclick="setQuestion('Setting DHCP server di MikroTik')">
+                                <i class="fas fa-server text-blue-500 mr-1"></i>MikroTik DHCP
+                            </span>
+                            <span class="text-xs bg-gray-100 px-3 py-1.5 rounded-full cursor-pointer hover:bg-blue-100 transition" onclick="setQuestion('Troubleshooting jaringan lambat')">
+                                <i class="fas fa-tachometer-alt text-blue-500 mr-1"></i>Slow Network
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center text-xs text-gray-400">
+                        <i class="fas fa-check-circle text-green-500 mr-1"></i>
+                        Terhubung dengan Gemini 2.5 Flash
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(welcomeDiv);
+        }
+
+        // Set question from chip
+        window.setQuestion = function(question) {
+            userInput.value = question;
+            userInput.style.height = 'auto';
+            userInput.style.height = (userInput.scrollHeight) + 'px';
+            userInput.focus();
+        };
+
+        // File upload handling
+        fileUploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            
+            for (const file of files) {
+                if (file.size > 20 * 1024 * 1024) { // 20MB limit untuk 2.5 Flash
+                    alert(`File ${file.name} terlalu besar. Maksimal 20MB`);
+                    continue;
+                }
+
+                const base64 = await fileToBase64(file);
+                
+                uploadedFiles.push({
+                    name: file.name,
+                    type: file.type,
+                    data: base64.split(',')[1]
+                });
+
+                addFilePreview(file);
+            }
+
+            filePreview.classList.remove('hidden');
+        });
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        function addFilePreview(file) {
+            const preview = document.createElement('div');
+            preview.className = 'relative group';
+            
+            if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                preview.innerHTML = `
+                    <img src="${url}" class="w-16 h-16 object-cover rounded-lg border-2 border-blue-200">
+                    <button class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs hidden group-hover:flex items-center justify-center shadow-md" onclick="removeFile('${file.name}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            } else {
+                preview.innerHTML = `
+                    <div class="w-16 h-16 bg-blue-50 rounded-lg border-2 border-blue-200 flex items-center justify-center">
+                        <i class="fas fa-${file.type.startsWith('video') ? 'video' : 'file-audio'} text-2xl text-blue-500"></i>
+                    </div>
+                    <button class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full text-white text-xs hidden group-hover:flex items-center justify-center shadow-md" onclick="removeFile('${file.name}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+            }
+            
+            filePreview.appendChild(preview);
+        }
+
+        window.removeFile = function(filename) {
+            uploadedFiles = uploadedFiles.filter(f => f.name !== filename);
+            if (uploadedFiles.length === 0) {
+                filePreview.classList.add('hidden');
+            }
+            renderFilePreviews();
+        };
+
+        function renderFilePreviews() {
+            filePreview.innerHTML = '';
+            uploadedFiles.forEach(file => {
+                const div = document.createElement('div');
+                div.className = 'text-xs bg-gray-100 px-2 py-1 rounded flex items-center';
+                div.innerHTML = `
+                    <i class="fas fa-${file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'file-audio'} mr-1"></i>
+                    <span class="truncate max-w-[100px]">${file.name}</span>
+                    <button class="ml-1 text-red-500" onclick="removeFile('${file.name}')">×</button>
+                `;
+                filePreview.appendChild(div);
+            });
+        }
+
+        // Send message
+        async function sendMessage() {
+            if (isProcessing) return;
+            
+            const message = userInput.value.trim();
+            if (!message && uploadedFiles.length === 0) return;
+
+            isProcessing = true;
+            sendBtn.disabled = true;
+            sendBtn.classList.add('opacity-50');
+
+            currentModel = modelSelect.value;
+            modelInfo.textContent = `Model: ${modelSelect.options[modelSelect.selectedIndex].text}`;
+
+            // Add user message
+            addMessage('user', message, uploadedFiles);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            
+            // Show typing indicator
+            showTypingIndicator();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message,
+                        files: uploadedFiles,
+                        model: currentModel
+                    })
+                });
+
+                const data = await response.json();
+                
+                removeTypingIndicator();
+                
+                if (data.success) {
+                    addMessage('bot', data.data);
+                } else {
+                    let errorMsg = `❌ Error: ${data.error}`;
+                    if (data.suggestion) {
+                        errorMsg += `\n\n💡 Saran: ${data.suggestion}`;
+                    }
+                    addMessage('bot', errorMsg);
+                }
+
+                // Clear uploaded files
+                uploadedFiles = [];
+                filePreview.classList.add('hidden');
+                filePreview.innerHTML = '';
+
+            } catch (error) {
+                removeTypingIndicator();
+                addMessage('bot', '❌ Gagal terhubung ke server. Pastikan server berjalan.');
+            } finally {
+                isProcessing = false;
+                sendBtn.disabled = false;
+                sendBtn.classList.remove('opacity-50');
+            }
+        }
+
+        // Add message to chat
+        function addMessage(sender, text, files = []) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex items-start space-x-3 ${sender === 'user' ? 'justify-end' : ''}`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="message-user p-3 max-w-[80%]">
+                        <p class="text-sm whitespace-pre-wrap">${escapeHtml(text)}</p>
+                        ${files.length > 0 ? '<div class="mt-2 text-xs border-t border-white/20 pt-2">📎 ' + files.map(f => f.name).join(', ') + '</div>' : ''}
+                    </div>
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-white text-sm"></i>
+                    </div>
+                `;
+            } else {
+                const formattedText = formatResponse(text);
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-robot text-white text-sm"></i>
+                    </div>
+                    <div class="message-bot p-3 max-w-[80%]">
+                        <div class="text-sm">${formattedText}</div>
+                        <div class="mt-2 flex items-center justify-between text-xs text-gray-400">
+                            <span><i class="fas fa-bolt text-blue-500 mr-1"></i>Gemini 2.5 Flash</span>
+                            <span>${new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatResponse(text) {
+            let escaped = escapeHtml(text);
+            
+            // Format code blocks
+            escaped = escaped.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+                const escapedCode = escapeHtml(code);
+                return `<div class="code-block">
+                    <div class="code-header">
+                        <span><i class="fas fa-terminal mr-1"></i> ${lang || 'bash'}</span>
+                        <button class="copy-btn" onclick="copyToClipboard(this, '${escapedCode.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')">
+                            <i class="fas fa-copy mr-1"></i> Copy
+                        </button>
+                    </div>
+                    <div class="code-content">${escapedCode}</div>
+                </div>`;
+            });
+            
+            // Format inline code
+            escaped = escaped.replace(/`([^`]+)`/g, '<code class="bg-gray-100 text-blue-600 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
+            
+            // Format bold
+            escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong class="text-blue-700">$1</strong>');
+            
+            // Format italic
+            escaped = escaped.replace(/\*([^*]+)\*/g, '<em class="text-gray-600">$1</em>');
+            
+            // Convert newlines to <br>
+            escaped = escaped.replace(/\n/g, '<br>');
+            
+            return escaped;
+        }
+
+        window.copyToClipboard = function(button, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalHtml = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check mr-1"></i> Copied!';
+                setTimeout(() => {
+                    button.innerHTML = originalHtml;
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        };
+
+        // Typing indicator
+        function showTypingIndicator() {
+            const div = document.createElement('div');
+            div.id = 'typingIndicator';
+            div.className = 'flex items-start space-x-3';
+            div.innerHTML = `
+                <div class="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-robot text-white text-sm"></i>
+                </div>
+                <div class="message-bot p-4">
+                    <div class="typing-indicator flex space-x-1">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(div);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            if (indicator) indicator.remove();
+        }
+
+        // Voice button (placeholder)
+        voiceBtn.addEventListener('click', () => {
+            alert('Fitur voice recognition akan segera hadir!');
+        });
+
+        // Event listeners
+        sendBtn.addEventListener('click', sendMessage);
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
